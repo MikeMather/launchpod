@@ -1,0 +1,69 @@
+---
+// Homepage — hero section, services overview, recent blog posts, contact CTA
+// To customize: edit the hero text, section headings, and CTA content below.
+import Base from '../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+
+const services = (await getCollection('services')).sort((a, b) => a.data.sort_order - b.data.sort_order);
+const posts = (await getCollection('blog'))
+  .filter(p => p.data.published)
+  .sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime())
+  .slice(0, 3);
+---
+
+<Base title="Home | MyBusiness">
+  <!-- Hero Section — main headline and call to action -->
+  <section class="hero">
+    <div class="container">
+      <h1>Welcome to MyBusiness</h1>
+      <p>We help businesses grow with professional web solutions and expert guidance.</p>
+      <a href="/contact" class="btn btn-primary">Get in Touch</a>
+    </div>
+  </section>
+
+  <!-- Services Section — pulled from src/content/services/ -->
+  <section class="section" style="background: var(--color-bg-alt);">
+    <div class="container">
+      <h2 class="text-center mb-8">Our Services</h2>
+      <div class="grid grid-3">
+        {services.map(service => (
+          <div class="card">
+            <h3>{service.data.title}</h3>
+            <p class="text-light">{service.data.description}</p>
+            {service.data.price && <p><strong>{service.data.price}</strong></p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Recent Blog Posts — pulled from src/content/blog/ -->
+  <section class="section">
+    <div class="container">
+      <h2 class="text-center mb-8">Latest News</h2>
+      <div class="grid grid-2">
+        {posts.map(post => (
+          <div class="card">
+            <h3><a href={`/blog/${post.id}`}>{post.data.title}</a></h3>
+            <p class="text-light" style="font-size: var(--text-sm);">{post.data.date}</p>
+            <p>{post.data.description}</p>
+          </div>
+        ))}
+      </div>
+      <div class="text-center mt-8">
+        <a href="/blog" class="btn btn-secondary">View All Posts</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact CTA -->
+  <section class="section" style="background: var(--color-primary); color: white; text-align: center;">
+    <div class="container">
+      <h2 style="color: white;">Ready to Get Started?</h2>
+      <p style="color: rgba(255,255,255,0.9); max-width: 500px; margin: 0 auto var(--space-6);">
+        Contact us today for a free consultation. We'd love to hear about your project.
+      </p>
+      <a href="/contact" class="btn" style="background: white; color: var(--color-primary);">Contact Us</a>
+    </div>
+  </section>
+</Base>

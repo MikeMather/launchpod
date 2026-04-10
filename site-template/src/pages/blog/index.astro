@@ -1,0 +1,32 @@
+---
+// Blog Listing — shows all published blog posts sorted by date
+import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('blog'))
+  .filter(p => p.data.published)
+  .sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
+---
+
+<Base title="Blog | MyBusiness" description="Read our latest articles and updates.">
+  <section class="section">
+    <div class="container" style="max-width: 800px;">
+      <h1 class="mb-8">Blog</h1>
+      {posts.length === 0 && <p class="text-light">No posts yet. Check back soon!</p>}
+      <div style="display: flex; flex-direction: column; gap: var(--space-6);">
+        {posts.map(post => (
+          <article class="card">
+            <h2 style="font-size: var(--text-xl);">
+              <a href={`/blog/${post.id}`}>{post.data.title}</a>
+            </h2>
+            <p class="text-light" style="font-size: var(--text-sm); margin-bottom: var(--space-2);">
+              {post.data.date} &middot; {post.data.author}
+            </p>
+            <p>{post.data.description}</p>
+            <a href={`/blog/${post.id}`} class="btn btn-secondary" style="align-self: flex-start;">Read More</a>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+</Base>

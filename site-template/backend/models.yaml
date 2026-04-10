@@ -1,0 +1,51 @@
+# Data collections for visitor-generated data.
+# Each collection gets auto-generated CRUD API routes at /api/{collection_name}
+# and a SQLite table using the JSON document pattern.
+
+collections:
+  contact_submissions:
+    fields:
+      name:
+        type: text
+        required: true
+        max_length: 200
+      email:
+        type: email
+        required: true
+      message:
+        type: richtext
+        required: true
+      status:
+        type: select
+        options: ["new", "read", "replied"]
+        default: "new"
+    access:
+      create: public
+      list: admin
+      read: admin
+      update: admin
+      delete: admin
+    hooks:
+      on_create:
+        - action: email
+          template: new-contact
+          to: "admin"
+          subject: "New contact form submission"
+
+  newsletter_subscribers:
+    fields:
+      email:
+        type: email
+        required: true
+        unique: true
+      name:
+        type: text
+      subscribed:
+        type: boolean
+        default: true
+    access:
+      create: public
+      list: admin
+      read: admin
+      update: admin
+      delete: admin

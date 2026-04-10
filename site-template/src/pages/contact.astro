@@ -1,0 +1,73 @@
+---
+// Contact Page — form that submits to the launchpod CRUD API
+// The form posts to /api/contact_submissions which is auto-generated from backend/models.yaml
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Contact | MyBusiness" description="Get in touch with us.">
+  <section class="section">
+    <div class="container" style="max-width: 600px;">
+      <h1 class="mb-8">Contact Us</h1>
+      <p class="mb-8 text-light">Have a question or want to work together? Fill out the form below and we'll get back to you as soon as possible.</p>
+
+      <form id="contact-form">
+        <div class="form-group">
+          <label for="name">Name</label>
+          <input type="text" id="name" name="name" required />
+        </div>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required />
+        </div>
+        <div class="form-group">
+          <label for="message">Message</label>
+          <textarea id="message" name="message" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Send Message</button>
+      </form>
+
+      <!-- Success/Error messages -->
+      <div id="form-success" style="display: none; margin-top: var(--space-4); padding: var(--space-4); background: #f0fdf4; border: 1px solid var(--color-success); border-radius: var(--radius); color: #166534;">
+        Thank you! Your message has been sent. We'll get back to you soon.
+      </div>
+      <div id="form-error" style="display: none; margin-top: var(--space-4); padding: var(--space-4); background: #fef2f2; border: 1px solid var(--color-error); border-radius: var(--radius); color: #991b1b;">
+        Something went wrong. Please try again.
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const form = document.getElementById('contact-form') as HTMLFormElement;
+    const successEl = document.getElementById('form-success')!;
+    const errorEl = document.getElementById('form-error')!;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      successEl.style.display = 'none';
+      errorEl.style.display = 'none';
+
+      const data = {
+        name: (form.elements.namedItem('name') as HTMLInputElement).value,
+        email: (form.elements.namedItem('email') as HTMLInputElement).value,
+        message: (form.elements.namedItem('message') as HTMLTextAreaElement).value,
+      };
+
+      try {
+        const res = await fetch('/api/contact_submissions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+
+        if (res.ok) {
+          successEl.style.display = 'block';
+          form.reset();
+        } else {
+          errorEl.style.display = 'block';
+        }
+      } catch {
+        errorEl.style.display = 'block';
+      }
+    });
+  </script>
+</Base>

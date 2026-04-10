@@ -1,0 +1,17 @@
+# ── LaunchPod Base Caddyfile ────────────────────────────────────────────────
+#
+# This file is managed by LaunchPod setup and provisioning scripts.
+# Do not edit the site blocks below the marker manually — they are
+# appended/removed by add-site.sh and remove-site.sh.
+#
+
+{
+	# Enable the Caddy admin API (used for config reloads)
+	admin localhost:2019
+
+	# Set your ACME email for Let's Encrypt certificates
+	email your-email@example.com
+}
+
+# ── Site blocks are appended below this line by add-site.sh ────────────────
+# LAUNCHPOD_SITES_START

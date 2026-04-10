@@ -1,0 +1,40 @@
+---
+// Dynamic Blog Post — renders a single blog post by slug
+import Base from '../../layouts/Base.astro';
+import { getCollection, render } from 'astro:content';
+
+const posts = await getCollection('blog');
+const post = posts.find(p => p.id === Astro.params.slug);
+
+if (!post) {
+  return Astro.redirect('/404');
+}
+
+const { Content } = await render(post);
+---
+
+<Base title={`${post.data.title} | MyBusiness`} description={post.data.description}>
+  <section class="section">
+    <div class="container" style="max-width: 800px;">
+      <article>
+        <header class="mb-8">
+          <h1>{post.data.title}</h1>
+          <p class="text-light">{post.data.date} &middot; {post.data.author}</p>
+          {post.data.tags.length > 0 && (
+            <div style="display: flex; gap: var(--space-2); margin-top: var(--space-2);">
+              {post.data.tags.map(tag => (
+                <span style="background: var(--color-bg-alt); padding: 2px 8px; border-radius: 4px; font-size: var(--text-xs);">{tag}</span>
+              ))}
+            </div>
+          )}
+        </header>
+        <div class="prose">
+          <Content />
+        </div>
+      </article>
+      <div class="mt-8">
+        <a href="/blog" class="btn btn-secondary">&larr; Back to Blog</a>
+      </div>
+    </div>
+  </section>
+</Base>
