@@ -1,5 +1,4 @@
 import path from 'path'
-import fs from 'fs'
 
 function requireEnv(name: string): string {
   const value = process.env[name]
@@ -17,16 +16,16 @@ function optionalEnv(name: string, defaultValue: string): string {
 const isDev = process.env.NODE_ENV !== 'production'
 
 export const config = {
-  SITE_DIR: isDev ? optionalEnv('SITE_DIR', path.resolve('../sites/dev/repo')) : requireEnv('SITE_DIR'),
+  SITE_DIR: isDev ? optionalEnv('SITE_DIR', path.resolve('../site-template')) : requireEnv('SITE_DIR'),
+  PREVIEWS_DIR: isDev ? optionalEnv('PREVIEWS_DIR', path.resolve('../previews')) : requireEnv('PREVIEWS_DIR'),
   SITE_DOMAIN: optionalEnv('SITE_DOMAIN', 'localhost'),
   ADMIN_PORT: optionalEnv('ADMIN_PORT', '3100'),
-  ADMIN_DB_PATH: isDev ? optionalEnv('ADMIN_DB_PATH', path.resolve('../sites/dev/data/admin.db')) : requireEnv('ADMIN_DB_PATH'),
-  SITE_DB_PATH: isDev ? optionalEnv('SITE_DB_PATH', path.resolve('../sites/dev/data/site.db')) : requireEnv('SITE_DB_PATH'),
+  ADMIN_DB_PATH: isDev ? optionalEnv('ADMIN_DB_PATH', path.resolve('../data/admin.db')) : requireEnv('ADMIN_DB_PATH'),
+  SITE_DB_PATH: isDev ? optionalEnv('SITE_DB_PATH', path.resolve('../data/site.db')) : requireEnv('SITE_DB_PATH'),
   CADDY_ADMIN_URL: optionalEnv('CADDY_ADMIN_URL', 'http://localhost:2019'),
   JWT_SECRET: optionalEnv('JWT_SECRET', 'dev-secret-change-in-production'),
   JWT_EXPIRATION: optionalEnv('JWT_EXPIRATION', '24h'),
   SESSION_TIMEOUT_MINUTES: parseInt(optionalEnv('SESSION_TIMEOUT_MINUTES', '30')),
-  SITE_NAME: optionalEnv('SITE_NAME', 'dev'),
 }
 
 // Path validation

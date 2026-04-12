@@ -1,10 +1,11 @@
 import type { FC } from 'hono/jsx'
 import { Layout, type LayoutUser } from '../layout.js'
-import type { TokenMetadata } from '../../db.js'
+import type { TokenMetadata, OAuthClientMetadata } from '../../db.js'
 
 interface TokensProps {
   user: LayoutUser
   tokens: TokenMetadata[]
+  oauthClients: OAuthClientMetadata[]
 }
 
 function formatTime(iso: string | null): string {
@@ -12,16 +13,50 @@ function formatTime(iso: string | null): string {
   return iso.replace('T', ' ').slice(0, 19)
 }
 
-export const TokensPage: FC<TokensProps> = ({ user, tokens }) => (
+export const TokensPage: FC<TokensProps> = ({ user, tokens, oauthClients }) => (
   <Layout title="API Tokens" user={user} activePath="/admin/tokens">
     <div class="card">
       <div class="flex justify-between items-center mb-4">
-        <h2>Your Tokens</h2>
+        <h2>OAuth Clients (for Claude/Cursor)</h2>
+        <button class="btn btn-primary" id="showOAuthGenBtn">Generate OAuth Client</button>
+      </div>
+
+      {oauthClients.length === 0 ? (
+        <p class="text-muted">No OAuth clients yet. Generate one to use with Claude Desktop or Cursor.</p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>Client ID</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {oauthClients.map((c) => (
+              <tr id={`oauth-${c.id}`}>
+                <td><strong>{c.label}</strong></td>
+                <td class="mono" style="font-size:12px;">{c.client_id}</td>
+                <td class="mono">{formatTime(c.created_at)}</td>
+                <td>
+                  <button class="btn btn-danger btn-sm revoke-oauth-btn" data-id={c.id}>Revoke</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+
+    <div class="card" style="margin-top:24px;">
+      <div class="flex justify-between items-center mb-4">
+        <h2>Bearer Tokens (manual API access)</h2>
         <button class="btn btn-primary" id="showGenBtn">Generate Token</button>
       </div>
 
       {tokens.length === 0 ? (
-        <p class="text-muted">No active tokens. Generate one to use with the MCP API.</p>
+        <p class="text-muted">No active tokens. Generate one to use with the MCP API manually.</p>
       ) : (
         <table>
           <thead>
@@ -46,6 +81,41 @@ export const TokensPage: FC<TokensProps> = ({ user, tokens }) => (
           </tbody>
         </table>
       )}
+    </div>
+
+    {/* Generate OAuth Client Modal */}
+    <div class="modal-overlay" id="oauthGenModal">
+      <div class="modal">
+        <h3 id="oauthModalTitle">Generate OAuth Client</h3>
+        <div id="oauthGenForm">
+          <div class="form-group">
+            <label>Label</label>
+            <input type="text" id="oauthLabel" placeholder="e.g. Claude Desktop" required />
+          </div>
+          <div class="flex gap-2">
+            <button class="btn btn-primary" id="oauthGenBtn">Generate</button>
+            <button class="btn btn-secondary" id="cancelOAuthGenBtn">Cancel</button>
+          </div>
+        </div>
+        <div id="oauthGenResult" style="display:none;">
+          <div class="alert alert-warning">
+            Copy these credentials now. The client secret will not be shown again.
+          </div>
+          <div class="form-group">
+            <label>Client ID</label>
+            <div style="background:#f1f5f9;padding:12px;border-radius:6px;word-break:break-all;font-family:monospace;font-size:12px;" id="clientIdValue"></div>
+          </div>
+          <div class="form-group">
+            <label>Client Secret</label>
+            <div style="background:#f1f5f9;padding:12px;border-radius:6px;word-break:break-all;font-family:monospace;font-size:12px;" id="clientSecretValue"></div>
+          </div>
+          <div class="flex gap-2">
+            <button class="btn btn-primary" id="copyOAuthBtn">Copy Client ID</button>
+            <button class="btn btn-primary" id="copySecretBtn">Copy Client Secret</button>
+            <button class="btn btn-secondary" id="closeOAuthModalBtn">Close</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     {/* Generate Token Modal */}
@@ -75,7 +145,77 @@ export const TokensPage: FC<TokensProps> = ({ user, tokens }) => (
       </div>
     </div>
 
-    <script>{`
+    <script dangerouslySetInnerHTML={{__html: `
+      console.log('[OAuth] Script loading...');
+      // OAuth Client Modal
+      var oauthModal = document.getElementById('oauthGenModal');
+      console.log('[OAuth] Modal element:', oauthModal);
+      var showOAuthGenBtn = document.getElementById('showOAuthGenBtn');
+      console.log('[OAuth] Button element:', showOAuthGenBtn);
+      if (showOAuthGenBtn) {
+        console.log('[OAuth] Attaching click listener');
+        showOAuthGenBtn.addEventListener('click', function() {
+          console.log('[OAuth] Button clicked!');
+          document.getElementById('oauthGenForm').style.display = 'block';
+          document.getElementById('oauthGenResult').style.display = 'none';
+          document.getElementById('oauthModalTitle').textContent = 'Generate OAuth Client';
+          document.getElementById('oauthLabel').value = '';
+          oauthModal.classList.add('open');
+        });
+      } else {
+        console.error('[OAuth] Button not found!');
+      }
+      document.getElementById('cancelOAuthGenBtn').addEventListener('click', function() {
+        oauthModal.classList.remove('open');
+      });
+      document.getElementById('closeOAuthModalBtn').addEventListener('click', function() {
+        oauthModal.classList.remove('open');
+        location.reload();
+      });
+      document.getElementById('oauthGenBtn').addEventListener('click', async function() {
+        var label = document.getElementById('oauthLabel').value.trim();
+        if (!label) return;
+        try {
+          var res = await fetch('/admin/api/oauth-clients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ label: label })
+          });
+          var data = await res.json();
+          if (data.clientId && data.clientSecret) {
+            document.getElementById('oauthGenForm').style.display = 'none';
+            document.getElementById('oauthGenResult').style.display = 'block';
+            document.getElementById('oauthModalTitle').textContent = 'OAuth Client Generated';
+            document.getElementById('clientIdValue').textContent = data.clientId;
+            document.getElementById('clientSecretValue').textContent = data.clientSecret;
+          }
+        } catch(err) {
+          alert('Failed to generate OAuth client');
+        }
+      });
+      document.getElementById('copyOAuthBtn').addEventListener('click', function() {
+        var val = document.getElementById('clientIdValue').textContent;
+        navigator.clipboard.writeText(val).then(function() {
+          this.textContent = 'Copied!';
+          setTimeout(function(){ document.getElementById('copyOAuthBtn').textContent = 'Copy Client ID'; }, 2000);
+        }.bind(this));
+      });
+      document.getElementById('copySecretBtn').addEventListener('click', function() {
+        var val = document.getElementById('clientSecretValue').textContent;
+        navigator.clipboard.writeText(val).then(function() {
+          this.textContent = 'Copied!';
+          setTimeout(function(){ document.getElementById('copySecretBtn').textContent = 'Copy Client Secret'; }, 2000);
+        }.bind(this));
+      });
+      document.querySelectorAll('.revoke-oauth-btn').forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+          if (!confirm('Revoke this OAuth client? This cannot be undone.')) return;
+          await fetch('/admin/api/oauth-clients/' + this.dataset.id + '/revoke', { method: 'POST' });
+          location.reload();
+        });
+      });
+
+      // Bearer Token Modal
       var modal = document.getElementById('genModal');
       document.getElementById('showGenBtn').addEventListener('click', function() {
         document.getElementById('genForm').style.display = 'block';
@@ -125,6 +265,6 @@ export const TokensPage: FC<TokensProps> = ({ user, tokens }) => (
           location.reload();
         });
       });
-    `}</script>
+    `}}></script>
   </Layout>
 )

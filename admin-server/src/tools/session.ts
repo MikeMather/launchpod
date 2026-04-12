@@ -254,7 +254,6 @@ export function registerSessionTools(
       const sessionStatus = sessionManager.getStatus()
 
       const lines = [
-        `Site: ${config.SITE_NAME}`,
         `Domain: ${config.SITE_DOMAIN}`,
         `Directory: ${siteDir}`,
         `Total files: ${totalFiles}`,

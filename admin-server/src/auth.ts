@@ -51,6 +51,34 @@ export function verifyJWT(token: string): JWTPayload {
   return decoded
 }
 
+/**
+ * Create an OAuth access token (JWT) for a user.
+ * Used by the OAuth token endpoint.
+ */
+export function createOAuthAccessToken(user: { id: string; email: string; role: string }): {
+  access_token: string
+  token_type: string
+  expires_in: number
+} {
+  const payload: JWTPayload = {
+    sub: user.id,
+    email: user.email,
+    role: user.role as 'admin' | 'editor',
+  }
+
+  const expiresInSeconds = 3600 // 1 hour
+  const signOpts: SignOptions = {
+    expiresIn: expiresInSeconds,
+  }
+  const token = jwt.sign(payload, config.JWT_SECRET, signOpts)
+
+  return {
+    access_token: token,
+    token_type: 'Bearer',
+    expires_in: expiresInSeconds,
+  }
+}
+
 // ── Cookie helpers ─────────────────────────────────────────────────────────
 
 const isProduction = process.env.NODE_ENV === 'production'
@@ -102,23 +130,50 @@ export async function dashboardAuthMiddleware(c: Context, next: Next): Promise<R
 
 /**
  * MCP token auth middleware.
- * Extracts Bearer token from Authorization header and validates it
- * against the tokens table. Attaches user to context. Returns 401 if invalid.
+ * Extracts Bearer token from Authorization header and validates it.
+ * Accepts both:
+ * - MCP tokens (from the tokens table)
+ * - OAuth JWT tokens (from the OAuth flow)
+ * Attaches user to context. Returns 401 if invalid.
  */
 export async function mcpTokenAuthMiddleware(c: Context, next: Next): Promise<Response | void> {
   const authHeader = c.req.header('Authorization')
 
+  console.log('[Auth] MCP request to:', c.req.path)
+  console.log('[Auth] Authorization header:', authHeader ? authHeader.substring(0, 20) + '...' : 'MISSING')
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('[Auth] No Bearer token found')
     return c.json({ error: 'Missing or invalid Authorization header' }, 401)
   }
 
   const token = authHeader.slice(7)
-  const user = validateToken(token)
+  console.log('[Auth] Token length:', token.length)
+  console.log('[Auth] Token prefix:', token.substring(0, 10) + '...')
 
+  // Try to validate as JWT first (OAuth tokens)
+  try {
+    const payload = verifyJWT(token)
+    console.log('[Auth] Valid JWT token for user:', payload.email)
+    const authUser: AuthUser = {
+      id: payload.sub,
+      email: payload.email,
+      role: payload.role,
+    }
+    c.set('user', authUser)
+    return await next()
+  } catch (err) {
+    console.log('[Auth] Not a valid JWT, trying MCP token...')
+  }
+
+  // Try to validate as MCP token
+  const user = validateToken(token)
   if (!user) {
+    console.log('[Auth] Token validation failed - not JWT and not MCP token')
     return c.json({ error: 'Invalid or revoked token' }, 401)
   }
 
+  console.log('[Auth] Valid MCP token for user:', user.email)
   const authUser: AuthUser = {
     id: user.id,
     email: user.email,

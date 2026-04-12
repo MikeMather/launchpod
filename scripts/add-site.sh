@@ -16,12 +16,17 @@ set -euo pipefail
 #     [--admin-port 3100]
 # ───────────────────────────────────────────────────────────────────────────
 
-LAUNCHPOD_DIR="/srv/launchpod"
+# Ensure bun is in PATH
+export PATH="$HOME/.bun/bin:$PATH"
+
+# Get the directory where this script is located, then go up one level to get LAUNCHPOD_DIR
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LAUNCHPOD_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SITES_DIR="${LAUNCHPOD_DIR}/sites"
 TEMPLATE_DIR="${LAUNCHPOD_DIR}/site-template"
 ADMIN_SERVER_DIR="${LAUNCHPOD_DIR}/admin-server"
 CADDYFILE="/etc/caddy/Caddyfile"
-SEED_SCRIPT="${LAUNCHPOD_DIR}/scripts/seed-db.js"
+SEED_SCRIPT="${ADMIN_SERVER_DIR}/seed.ts"
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -162,11 +167,11 @@ ok "Git repo initialized with initial commit."
 
 log "Installing site dependencies..."
 cd "${SITE_DIR}/repo"
-npm install
+bun install
 ok "Dependencies installed."
 
 log "Building site..."
-npm run build
+bun run build
 ok "Site built successfully."
 
 # ── Seed the admin database ──────────────────────────────────────────────
@@ -178,10 +183,11 @@ log "Seeding admin database..."
 if [[ ! -f "${SEED_SCRIPT}" ]]; then
   fail "Seed script not found at ${SEED_SCRIPT}. Run setup.sh first."
 fi
-node "${SEED_SCRIPT}" \
-  --db-path "${ADMIN_DB_PATH}" \
-  --email "${ADMIN_EMAIL}" \
-  --password "${ADMIN_PASSWORD}"
+
+# Set environment variable for seed script to find the database
+export ADMIN_DB_PATH="${ADMIN_DB_PATH}"
+cd "${ADMIN_SERVER_DIR}"
+bun run "${SEED_SCRIPT}" "${ADMIN_EMAIL}" "${ADMIN_PASSWORD}" "Admin"
 ok "Admin database seeded with user: ${ADMIN_EMAIL}"
 
 # ── Generate JWT secret ──────────────────────────────────────────────────

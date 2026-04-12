@@ -11,6 +11,7 @@ interface LayoutProps {
   title: string
   user: LayoutUser
   activePath?: string
+  children?: any
 }
 
 const navItems = [
@@ -28,6 +29,7 @@ export const Layout: FC<LayoutProps> = ({ title, user, activePath, children }) =
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <title>{title} - Admin</title>
+      <script src="https://unpkg.com/htmx.org@2.0.3"></script>
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f1f5f9; color: #1e293b; display: flex; min-height: 100vh; }
@@ -47,7 +49,7 @@ export const Layout: FC<LayoutProps> = ({ title, user, activePath, children }) =
         .sidebar-user { padding: 16px 20px; border-top: 1px solid #334155; font-size: 13px; }
         .sidebar-user .user-name { font-weight: 600; color: #e2e8f0; }
         .sidebar-user .user-role { color: #64748b; font-size: 12px; text-transform: capitalize; }
-        .sidebar-user .logout-btn { margin-top: 8px; background: none; border: 1px solid #475569; color: #94a3b8; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .sidebar-user .logout-btn { width: 100%; margin-top: 8px; background: none; border: 1px solid #475569; color: #94a3b8; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: background 0.15s, color 0.15s; }
         .sidebar-user .logout-btn:hover { background: #475569; color: #e2e8f0; }
 
         /* Main */
@@ -68,16 +70,17 @@ export const Layout: FC<LayoutProps> = ({ title, user, activePath, children }) =
         tr:hover td { background: #f8fafc; }
 
         /* Buttons */
-        .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; border: none; cursor: pointer; transition: background 0.15s; }
+        .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; border: none; cursor: pointer; transition: background 0.15s, opacity 0.15s; }
+        .btn:disabled, .btn.htmx-request { opacity: 0.6; cursor: not-allowed; }
         .btn-primary { background: #3b82f6; color: #fff; }
-        .btn-primary:hover { background: #2563eb; }
+        .btn-primary:hover:not(:disabled) { background: #2563eb; }
         .btn-secondary { background: #e2e8f0; color: #334155; }
-        .btn-secondary:hover { background: #cbd5e1; }
+        .btn-secondary:hover:not(:disabled) { background: #cbd5e1; }
         .btn-danger { background: #ef4444; color: #fff; }
-        .btn-danger:hover { background: #dc2626; }
+        .btn-danger:hover:not(:disabled) { background: #dc2626; }
         .btn-sm { padding: 4px 10px; font-size: 12px; }
         .btn-success { background: #22c55e; color: #fff; }
-        .btn-success:hover { background: #16a34a; }
+        .btn-success:hover:not(:disabled) { background: #16a34a; }
 
         /* Forms */
         .form-group { margin-bottom: 14px; }
@@ -152,7 +155,9 @@ export const Layout: FC<LayoutProps> = ({ title, user, activePath, children }) =
         <div class="sidebar-user">
           <div class="user-name">{user.name || user.email}</div>
           <div class="user-role">{user.role}</div>
-          <button class="logout-btn" id="logoutBtn">Log out</button>
+          <form method="post" action="/logout">
+            <button type="submit" class="logout-btn">Log out</button>
+          </form>
         </div>
       </aside>
       <div class="main">
@@ -163,12 +168,6 @@ export const Layout: FC<LayoutProps> = ({ title, user, activePath, children }) =
           {children}
         </div>
       </div>
-      <script>{`
-        document.getElementById('logoutBtn').addEventListener('click', async function() {
-          await fetch('/admin/api/logout', { method: 'POST' });
-          window.location.href = '/login';
-        });
-      `}</script>
     </body>
   </html>
 )

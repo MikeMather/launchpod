@@ -1,4 +1,4 @@
-import { execSync } from 'child_process'
+import { execSync } from 'node:child_process'
 import fs from 'fs'
 import path from 'path'
 import { z } from 'zod'
@@ -233,6 +233,84 @@ export function registerFileTools(
           {
             type: 'text',
             text: `File ${isNew ? 'created' : 'updated'}: ${args.path}`,
+          },
+        ],
+      }
+    }
+  )
+
+  // ── edit_file ──────────────────────────────────────────────────────────
+
+  server.tool(
+    'edit_file',
+    'Edit a file by replacing a search string with a replacement string. Use this for targeted edits without rewriting the entire file. The search string must match exactly (case-sensitive). For best results, include enough context in the search string to make it unique.',
+    {
+      path: z.string().describe('Relative path to the file within the project'),
+      search: z.string().describe('The exact string to search for (must match exactly, case-sensitive)'),
+      replacement: z.string().describe('The string to replace the search string with'),
+    },
+    async (args) => {
+      if (sessionManager.isActive()) sessionManager.touchActivity()
+
+      const workDir = sessionManager.getWorkingDir()
+      const validation = validatePath(args.path, workDir, { requireWritable: true })
+
+      if (!validation.valid) {
+        return {
+          content: [{ type: 'text', text: `Error: ${validation.error}` }],
+          isError: true,
+        }
+      }
+
+      if (!fs.existsSync(validation.resolved)) {
+        return {
+          content: [{ type: 'text', text: `Error: File not found: ${args.path}` }],
+          isError: true,
+        }
+      }
+
+      const stat = fs.statSync(validation.resolved)
+      if (stat.isDirectory()) {
+        return {
+          content: [{ type: 'text', text: `Error: Path is a directory, not a file: ${args.path}` }],
+          isError: true,
+        }
+      }
+
+      const contents = fs.readFileSync(validation.resolved, 'utf-8')
+
+      if (!contents.includes(args.search)) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: Search string not found in ${args.path}. Make sure the search string matches exactly (case-sensitive).`,
+            },
+          ],
+          isError: true,
+        }
+      }
+
+      const newContents = contents.replace(args.search, args.replacement)
+      fs.writeFileSync(validation.resolved, newContents, 'utf-8')
+
+      // Auto-commit if session is active
+      const user = getUser()
+      stageAndCommitIfSession(
+        validation.resolved,
+        `edit: ${args.path}`,
+        user?.id ?? null,
+        user?.name,
+        user?.email
+      )
+
+      logAction(user?.id ?? null, 'file.edit', args.path)
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `File edited: ${args.path}`,
           },
         ],
       }

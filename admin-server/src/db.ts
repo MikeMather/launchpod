@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3'
+import Database from 'bun:sqlite'
 import crypto from 'crypto'
 import bcrypt from 'bcrypt'
 import path from 'path'
@@ -67,6 +67,23 @@ export interface SessionListOptions {
   offset?: number
 }
 
+export interface OAuthClient {
+  id: string
+  user_id: string
+  client_id: string
+  client_secret_hash: string
+  label: string
+  created_at: string
+  revoked_at: string | null
+}
+
+export interface OAuthClientMetadata {
+  id: string
+  client_id: string
+  label: string
+  created_at: string
+}
+
 // ── Database singleton ─────────────────────────────────────────────────────
 
 let _db: Database.Database | null = null
@@ -86,8 +103,8 @@ export function initDb(): Database.Database {
   fs.mkdirSync(dbDir, { recursive: true })
 
   _db = new Database(config.ADMIN_DB_PATH)
-  _db.pragma('journal_mode = WAL')
-  _db.pragma('foreign_keys = ON')
+  // _db.pragma('journal_mode = WAL')
+  // _db.pragma('foreign_keys = ON')
 
   // Create tables
   _db.exec(`
@@ -127,6 +144,16 @@ export function initDb(): Database.Database {
       started_at TEXT NOT NULL DEFAULT (datetime('now')),
       ended_at TEXT,
       outcome TEXT CHECK(outcome IN ('published','discarded','timed_out'))
+    );
+
+    CREATE TABLE IF NOT EXISTS oauth_clients (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      client_id TEXT UNIQUE NOT NULL,
+      client_secret_hash TEXT NOT NULL,
+      label TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      revoked_at TEXT
     );
   `)
 
@@ -349,4 +376,69 @@ export function listSessionRecords(options: SessionListOptions = {}): {
 export function getActiveSessionRecord(): SessionRecord | undefined {
   const db = getDb()
   return db.prepare('SELECT * FROM sessions WHERE ended_at IS NULL ORDER BY started_at DESC LIMIT 1').get() as SessionRecord | undefined
+}
+
+// ── OAuth client operations ────────────────────────────────────────────────
+
+export async function generateOAuthClient(
+  userId: string,
+  label: string
+): Promise<{ clientId: string; clientSecret: string; id: string }> {
+  const db = getDb()
+  const id = crypto.randomUUID()
+  const clientId = `lp_${crypto.randomBytes(16).toString('hex')}` // 32 char hex with prefix
+  const clientSecret = crypto.randomBytes(32).toString('hex') // 64 char hex
+  const clientSecretHash = await bcrypt.hash(clientSecret, 12)
+
+  db.prepare(`
+    INSERT INTO oauth_clients (id, user_id, client_id, client_secret_hash, label)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(id, userId, clientId, clientSecretHash, label)
+
+  return { clientId, clientSecret, id }
+}
+
+export async function validateOAuthClient(
+  clientId: string,
+  clientSecret: string
+): Promise<User | null> {
+  const db = getDb()
+
+  const client = db.prepare(`
+    SELECT c.*, u.* FROM oauth_clients c
+    JOIN users u ON c.user_id = u.id
+    WHERE c.client_id = ? AND c.revoked_at IS NULL AND u.deactivated_at IS NULL
+  `).get(clientId) as (OAuthClient & User) | undefined
+
+  if (!client) return null
+
+  // Verify the client secret
+  const valid = await bcrypt.compare(clientSecret, client.client_secret_hash)
+  if (!valid) return null
+
+  // Return user fields only
+  return {
+    id: client.user_id,
+    email: client.email,
+    name: client.name,
+    password_hash: client.password_hash,
+    role: client.role as 'admin' | 'editor',
+    created_at: client.created_at,
+    deactivated_at: client.deactivated_at,
+  }
+}
+
+export function revokeOAuthClient(clientId: string): void {
+  const db = getDb()
+  db.prepare("UPDATE oauth_clients SET revoked_at = datetime('now') WHERE id = ?").run(clientId)
+}
+
+export function listUserOAuthClients(userId: string): OAuthClientMetadata[] {
+  const db = getDb()
+  return db.prepare(`
+    SELECT id, client_id, label, created_at
+    FROM oauth_clients
+    WHERE user_id = ? AND revoked_at IS NULL
+    ORDER BY created_at DESC
+  `).all(userId) as OAuthClientMetadata[]
 }

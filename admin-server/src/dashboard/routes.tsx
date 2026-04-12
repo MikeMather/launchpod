@@ -19,6 +19,9 @@ import {
   generateToken,
   revokeToken,
   listUserTokens,
+  generateOAuthClient,
+  revokeOAuthClient,
+  listUserOAuthClients,
   logAction,
   queryAuditLog,
   listSessionRecords,
@@ -28,7 +31,6 @@ import {
 import type { LayoutUser } from './layout.js'
 
 // Views
-import { LoginPage } from './views/login.js'
 import { HomePage } from './views/home.js'
 import { UsersPage } from './views/users.js'
 import { TokensPage } from './views/tokens.js'
@@ -86,12 +88,6 @@ function loadModels(): ModelsConfig {
 // ── App ─────────────────────────────────────────────────────────────────────
 
 const dashboard = new Hono()
-
-// ── Public: Login page ──────────────────────────────────────────────────────
-
-dashboard.get('/login', (c) => {
-  return c.html(<LoginPage />)
-})
 
 // ── Protected routes ────────────────────────────────────────────────────────
 
@@ -200,7 +196,8 @@ dashboard.post('/admin/api/users/:id/reactivate', adminOnlyMiddleware, async (c)
 dashboard.get('/admin/tokens', (c) => {
   const user = getUser(c)
   const tokens = listUserTokens(user.id)
-  return c.html(<TokensPage user={user} tokens={tokens} />)
+  const oauthClients = listUserOAuthClients(user.id)
+  return c.html(<TokensPage user={user} tokens={tokens} oauthClients={oauthClients} />)
 })
 
 dashboard.post('/admin/api/tokens', async (c) => {
@@ -220,6 +217,28 @@ dashboard.post('/admin/api/tokens/:id/revoke', async (c) => {
   const currentUser = c.get('user') as AuthUser
   revokeToken(id)
   logAction(currentUser.id, 'revoke_token', `Revoked token ${id}`)
+  return c.json({ ok: true })
+})
+
+// ── OAuth Clients ───────────────────────────────────────────────────────────
+
+dashboard.post('/admin/api/oauth-clients', async (c) => {
+  const currentUser = c.get('user') as AuthUser
+  const body = await c.req.json()
+  const { label } = body
+  if (!label || !label.trim()) {
+    return c.json({ error: 'Label is required' }, 400)
+  }
+  const result = await generateOAuthClient(currentUser.id, label.trim())
+  logAction(currentUser.id, 'generate_oauth_client', `Generated OAuth client "${label.trim()}"`)
+  return c.json({ ok: true, clientId: result.clientId, clientSecret: result.clientSecret, id: result.id })
+})
+
+dashboard.post('/admin/api/oauth-clients/:id/revoke', async (c) => {
+  const { id } = c.req.param()
+  const currentUser = c.get('user') as AuthUser
+  revokeOAuthClient(id)
+  logAction(currentUser.id, 'revoke_oauth_client', `Revoked OAuth client ${id}`)
   return c.json({ ok: true })
 })
 

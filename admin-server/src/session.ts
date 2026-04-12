@@ -1,4 +1,4 @@
-import { execSync, spawn, type ChildProcess } from 'child_process'
+import { spawn, type ChildProcess, execFileSync } from 'node:child_process'
 import crypto from 'crypto'
 import path from 'path'
 import fs from 'fs'
@@ -41,13 +41,14 @@ function gitExec(
   cwd: string,
   env?: Record<string, string>
 ): string {
-  const result = execSync(['git', ...args].join(' '), {
+  // Use execFileSync which resolves PATH correctly
+  const output = execFileSync('git', args, {
     cwd,
     encoding: 'utf-8',
     env: { ...process.env, ...env },
-    timeout: 30_000,
   })
-  return result.trim()
+
+  return (output || '').trim()
 }
 
 function createBranch(name: string): void {
@@ -234,7 +235,8 @@ class SessionManager {
 
     const sessionId = crypto.randomBytes(4).toString('hex')
     const branch = `preview/${sessionId}`
-    const previewsBase = path.resolve(config.SITE_DIR, '..', 'previews')
+    const previewsBase = config.PREVIEWS_DIR
+    fs.mkdirSync(previewsBase, { recursive: true })
     const worktreePath = path.join(previewsBase, sessionId)
     const port = 5000 + Math.floor(Math.random() * 4000)
     const previewUrl = `https://preview-${sessionId}.admin.${config.SITE_DOMAIN}`
@@ -243,9 +245,6 @@ class SessionManager {
     const cleanupSteps: (() => void)[] = []
 
     try {
-      // a. Ensure previews directory exists
-      fs.mkdirSync(previewsBase, { recursive: true })
-
       // b. Create git branch off main
       createBranch(branch)
       cleanupSteps.push(() => deleteBranch(branch))
@@ -376,12 +375,16 @@ class SessionManager {
 
       // e. Run build with timeout
       try {
-        execSync('npm run build', {
+        const { spawnSync } = require('node:child_process')
+        const buildResult = spawnSync('bun', ['run', 'build'], {
           cwd: config.SITE_DIR,
           encoding: 'utf-8',
           timeout: 120_000,
           stdio: 'pipe',
         })
+        if (buildResult.status !== 0) {
+          throw new Error(buildResult.stderr || buildResult.stdout || 'Build failed')
+        }
       } catch (buildErr) {
         // Build failed - rollback merge
         console.error(`[session] Build failed, rolling back merge: ${buildErr}`)
@@ -394,12 +397,16 @@ class SessionManager {
 
       // f. Restart via pm2
       try {
-        execSync('pm2 restart all', {
+        const { spawnSync } = require('node:child_process')
+        const pm2Result = spawnSync('pm2', ['restart', 'all'], {
           cwd: config.SITE_DIR,
           encoding: 'utf-8',
           timeout: 15_000,
           stdio: 'pipe',
         })
+        if (pm2Result.status !== 0) {
+          console.warn('[session] PM2 restart warning:', pm2Result.stderr)
+        }
       } catch (pm2Err) {
         console.warn(`[session] pm2 restart failed (may not be using pm2): ${pm2Err}`)
       }
