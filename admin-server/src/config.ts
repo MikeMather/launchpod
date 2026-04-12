@@ -16,7 +16,7 @@ function optionalEnv(name: string, defaultValue: string): string {
 const isDev = process.env.NODE_ENV !== 'production'
 
 export const config = {
-  SITE_DIR: isDev ? optionalEnv('SITE_DIR', path.resolve('../site-template')) : requireEnv('SITE_DIR'),
+  SITE_DIR: isDev ? optionalEnv('SITE_DIR', path.resolve('../site')) : requireEnv('SITE_DIR'),
   PREVIEWS_DIR: isDev ? optionalEnv('PREVIEWS_DIR', path.resolve('../previews')) : requireEnv('PREVIEWS_DIR'),
   SITE_DOMAIN: optionalEnv('SITE_DOMAIN', 'localhost'),
   ADMIN_PORT: optionalEnv('ADMIN_PORT', '3100'),

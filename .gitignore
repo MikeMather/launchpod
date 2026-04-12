@@ -6,3 +6,10 @@ data/
 .env
 .env.production
 .DS_Store
+
+# Working copy of the site (its own independent git repo)
+site/
+previews/
+caddy/
+ecosystem.config.cjs
+Caddyfile

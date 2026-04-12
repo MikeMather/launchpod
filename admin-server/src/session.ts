@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess, execFileSync } from 'node:child_process'
+import { spawn, spawnSync, type ChildProcess, execFileSync } from 'node:child_process'
 import crypto from 'crypto'
 import path from 'path'
 import fs from 'fs'
@@ -240,6 +240,7 @@ class SessionManager {
     const worktreePath = path.join(previewsBase, sessionId)
     const port = 5000 + Math.floor(Math.random() * 4000)
     const previewUrl = `https://preview-${sessionId}.admin.${config.SITE_DOMAIN}`
+    console.log('[session] preview port:', port)
 
     // Track what we've done for rollback
     const cleanupSteps: (() => void)[] = []
@@ -253,12 +254,19 @@ class SessionManager {
       createWorktree(worktreePath, branch)
       cleanupSteps.push(() => removeWorktree(worktreePath))
 
-      // d. Create symlink: worktree/node_modules -> SITE_DIR/node_modules
-      const siteNodeModules = path.join(config.SITE_DIR, 'node_modules')
-      const worktreeNodeModules = path.join(worktreePath, 'node_modules')
-      if (fs.existsSync(siteNodeModules) && !fs.existsSync(worktreeNodeModules)) {
-        fs.symlinkSync(siteNodeModules, worktreeNodeModules, 'junction')
+      // d. Install dependencies in worktree
+      console.log(`[preview:${sessionId}] Installing dependencies...`)
+      const installResult = spawnSync('bun', ['install'], {
+        cwd: worktreePath,
+        encoding: 'utf-8',
+        timeout: 120_000,
+        stdio: 'pipe',
+        env: { ...process.env, PATH: process.env.PATH },
+      })
+      if (installResult.status !== 0) {
+        throw new Error(`bun install failed: ${installResult.stderr || installResult.stdout}`)
       }
+      console.log(`[preview:${sessionId}] Dependencies installed.`)
 
       // e. Symlink data directory
       const siteDataDir = path.join(config.SITE_DIR, 'data')
@@ -268,11 +276,12 @@ class SessionManager {
       }
 
       // f. Spawn dev server
-      const devProcess = spawn('npx', ['astro', 'dev', '--host', '0.0.0.0', '--port', String(port)], {
+      const devProcess = spawn('bun', ['run', 'dev', '--host', '0.0.0.0', '--port', String(port)], {
         cwd: worktreePath,
         stdio: ['ignore', 'pipe', 'pipe'],
         shell: true,
-        detached: false,
+        detached: true,
+        env: { ...process.env, PATH: process.env.PATH },
       })
 
       devProcess.stdout?.on('data', (data: Buffer) => {
@@ -360,44 +369,45 @@ class SessionManager {
         userEmail
       )
 
-      // b. Record pre-merge commit of main
+      // b. Kill the preview dev server
+      this.killPreviewProcess()
+
+      // c. Record pre-merge commit of main
       const preMergeCommit = gitExec(['rev-parse', 'HEAD'], config.SITE_DIR)
 
-      // c. Checkout main (should already be on main in SITE_DIR)
+      // d. Run build in worktree with timeout
       try {
-        gitExec(['checkout', 'main'], config.SITE_DIR)
-      } catch {
-        // Already on main, that's fine
-      }
-
-      // d. Merge preview branch
-      mergeBranch(branch, userName, userEmail)
-
-      // e. Run build with timeout
-      try {
-        const { spawnSync } = require('node:child_process')
         const buildResult = spawnSync('bun', ['run', 'build'], {
-          cwd: config.SITE_DIR,
+          cwd: worktreePath,
           encoding: 'utf-8',
           timeout: 120_000,
           stdio: 'pipe',
+          env: { ...process.env, PATH: process.env.PATH },
         })
         if (buildResult.status !== 0) {
           throw new Error(buildResult.stderr || buildResult.stdout || 'Build failed')
         }
       } catch (buildErr) {
-        // Build failed - rollback merge
-        console.error(`[session] Build failed, rolling back merge: ${buildErr}`)
-        resetHard(preMergeCommit, config.SITE_DIR)
+        // Build failed
+        console.error(`[session] Build failed, not merging: ${buildErr}`)
         return {
           success: false,
           error: `Build failed: ${buildErr instanceof Error ? buildErr.message : String(buildErr)}`,
         }
       }
 
-      // f. Restart via pm2
+      // e. Checkout main (should already be on main in SITE_DIR)
       try {
-        const { spawnSync } = require('node:child_process')
+        gitExec(['checkout', 'main'], config.SITE_DIR)
+      } catch {
+        // Already on main, that's fine
+      }
+
+      // f. Merge preview branch
+      mergeBranch(branch, userName, userEmail)
+
+      // g. Restart via pm2
+      try {
         const pm2Result = spawnSync('pm2', ['restart', 'all'], {
           cwd: config.SITE_DIR,
           encoding: 'utf-8',
@@ -411,10 +421,10 @@ class SessionManager {
         console.warn(`[session] pm2 restart failed (may not be using pm2): ${pm2Err}`)
       }
 
-      // g. Cleanup preview environment
+      // h. Cleanup preview environment
       await this.cleanupPreview()
 
-      // h. Update session record
+      // i. Update session record
       try {
         endSessionRecord(sessionId, 'published')
       } catch (err) {
@@ -490,7 +500,8 @@ class SessionManager {
   private killPreviewProcess(): void {
     if (this.session?.previewProcess) {
       try {
-        this.session.previewProcess.kill('SIGTERM')
+        // Kill the entire process group to ensure child processes are killed
+        process.kill(-this.session.previewProcess.pid, 'SIGTERM')
       } catch {
         // Process may already be dead
       }
