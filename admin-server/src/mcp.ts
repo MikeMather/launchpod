@@ -166,7 +166,7 @@ export function createMcpRoutes(): Hono {
     if (!user && process.env.MCP_PROXY_AUTH === 'true') {
       console.log('[MCP SSE] MCP_PROXY_AUTH enabled - using default user')
       const { getUserByEmail } = await import('./db.js')
-      const defaultUser = getUserByEmail('admin@localhost')
+      const defaultUser = getUserByEmail(process.env.ADMIN_EMAIL!);
       if (defaultUser) {
         user = { id: defaultUser.id, name: defaultUser.name, email: defaultUser.email }
         console.log('[MCP SSE] Default user set:', user.email)

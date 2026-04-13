@@ -23,6 +23,7 @@ DATA_DIR="${LAUNCHPOD_DIR}/data"
 PREVIEWS_DIR="${LAUNCHPOD_DIR}/previews"
 CADDYFILE="${LAUNCHPOD_DIR}/caddy/Caddyfile"
 SEED_SCRIPT="${ADMIN_SERVER_DIR}/seed.ts"
+ADMIN_EMAIL="${ADMIN_EMAIL:-admin@localhost}"
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -59,6 +60,9 @@ if [[ -z "${DOMAIN}" ]]; then
 fi
 if [[ -z "${GIT_REMOTE}" ]]; then
   GIT_REMOTE=$(read_input "Git remote URL (for pushing site changes)" "")
+fi
+if [[ -z "${ADMIN_EMAIL}" ]]; then
+  ADMIN_EMAIL=$(read_input "Admin email (e.g. admin@mysite.com)" "")
 fi
 
 # ── Validate inputs ────────────────────────────────────────────────────────
@@ -228,7 +232,7 @@ cat > "${CADDYFILE}" <<CADDYEOF
 
 {
 	admin localhost:2019
-	email your-email@example.com
+	email ${ADMIN_EMAIL}
 }
 
 # ── Site: ${SITE_NAME} ───────────────────────────────────────────────
@@ -303,7 +307,9 @@ module.exports = {
         ADMIN_DB_PATH: "${ADMIN_DB_PATH}",
         SITE_DB_PATH: "${SITE_DB_PATH}",
         JWT_SECRET: "${JWT_SECRET}",
-        NODE_ENV: "production"
+        NODE_ENV: "production",
+        MCP_PROXY_AUTH: "true",
+        ADMIN_EMAIL: "${ADMIN_EMAIL}"
       }
     },
     {
