@@ -1,0 +1,39 @@
+---
+// Preview banner — shown only when the site is accessed via a preview-{hash} subdomain.
+const isPreview = Astro.url.hostname.startsWith('preview-');
+
+// Extract the live-site domain by stripping the "preview-{hash}." prefix and the "admin." subdomain.
+// E.g. preview-abc123.admin.example.com → example.com
+const liveDomain = Astro.url.hostname.replace(/^preview-[^.]+\.admin\./, '');
+const liveUrl = `https://${liveDomain}`;
+---
+
+{isPreview && (
+  <div class="preview-banner">
+    <p>
+      You are viewing a <strong>preview</strong> of this site.
+      <a href={liveUrl}>View the live site →</a>
+    </p>
+  </div>
+)}
+
+<style>
+  .preview-banner {
+    background: #fef3c7;
+    color: #78350f;
+    text-align: center;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    border-bottom: 1px solid #f59e0b;
+  }
+
+  .preview-banner a {
+    color: #92400e;
+    text-decoration: underline;
+    margin-left: 0.5rem;
+  }
+
+  .preview-banner a:hover {
+    color: #78350f;
+  }
+</style>
