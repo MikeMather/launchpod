@@ -156,6 +156,53 @@ export function registerFileTools(
   - Use software architecture best practices (e.g. separation of concerns, DRY)
 
   Use the list_files tool to view the files in the project before beginning.
+
+  ── Data / CRUD Layer ──────────────────────────────────────────────────────
+
+  The site has a built-in data layer for storing and managing structured data
+  (e.g. contact form submissions, blog comments, newsletter signups, custom
+  content types). It is defined in backend/models.yaml and backed by SQLite.
+
+  **How it works:**
+
+  1. **Models** — Collections are defined in \`backend/models.yaml\`. Each
+     collection defines fields (type, required, default, validation rules) and
+     access permissions (public vs admin for create/list/read/update/delete).
+     Supported field types: text, email, url, richtext, number, boolean,
+     datetime, select, multiselect, file, list, relation.
+
+  2. **API Routes** — Auto-generated REST endpoints at \`/api/[collection]\`:
+     - \`GET  /api/{collection}\`          — List records (paginated, sortable, filterable)
+     - \`POST /api/{collection}\`          — Create a record
+     - \`GET  /api/{collection}/{id}\`     — Get a single record
+     - \`PATCH /api/{collection}/{id}\`    — Update a record
+     - \`DELETE /api/{collection}/{id}\`   — Delete a record
+
+  3. **Server-side usage** — Import from \`src/lib/launchpod/\`:
+     - \`listRecords(collection, options)\` — Paginated list with sorting/filtering
+     - \`getRecord(collection, id)\`        — Get single record by ID
+     - \`createRecord(collection, data)\`   — Create (validates against model schema)
+     - \`updateRecord(collection, id, data)\` — Update (validates against model schema)
+     - \`deleteRecord(collection, id)\`     — Delete by ID
+
+  4. **Validation** — Data is validated against the model definition before
+     create/update. Required fields, max lengths, min/max numbers, enum options,
+     and unique constraints are all enforced.
+
+  5. **Hooks** — Collections can define hooks in models.yaml:
+     - \`on_create\`: Triggered after a record is created (email notifications, webhooks)
+     - \`on_update\`: Triggered after a record is updated
+
+  **When to use the CRUD layer vs files:**
+  - Use the CRUD layer for user-generated data, form submissions, dynamic
+    content, or anything that needs to be queried/filtered/paginated.
+  - Use file tools (write_file, edit_file) for static content like blog posts
+    in \`src/content/\`, page templates, components, and configuration.
+
+  **Adding a new collection:** Edit \`backend/models.yaml\` to add a new
+  collection definition with fields, access rules, and optional hooks. The
+  API routes are auto-generated from the model definitions — no extra code
+  needed. The database tables are created automatically on first access.
   `;
 
   server.tool(
