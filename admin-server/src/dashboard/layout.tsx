@@ -97,6 +97,11 @@ export const Layout: FC<LayoutProps> = ({ title, user, activePath, children }) =
         .badge-published { background: #dcfce7; color: #166534; }
         .badge-discarded { background: #fef3c7; color: #92400e; }
         .badge-timed_out { background: #fee2e2; color: #991b1b; }
+        .badge-yes { background: #dcfce7; color: #166534; }
+        .badge-no { background: #fee2e2; color: #991b1b; }
+
+        /* Data table cell styles */
+        .richtext-cell { display: block; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* Modal / Dialog */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }

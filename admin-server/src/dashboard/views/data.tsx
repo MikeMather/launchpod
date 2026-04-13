@@ -23,7 +23,118 @@ interface DataProps {
   total: number
 }
 
-export const DataPage: FC<DataProps> = ({ user, collections, activeCollection, records, columns, page, totalPages, total }) => (
+/** Format a cell value based on the field type definition */
+function formatCell(value: unknown, fieldType?: CollectionField): string {
+  if (value === null || value === undefined || value === '') return ''
+
+  if (!fieldType) return String(value)
+
+  switch (fieldType.type) {
+    case 'boolean':
+      return value ? 'Yes' : 'No'
+    case 'datetime': {
+      const d = new Date(String(value))
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      }
+      return String(value)
+    }
+    case 'email':
+      return String(value)
+    case 'url':
+      return String(value)
+    case 'richtext': {
+      const str = String(value)
+      return str.length > 120 ? str.slice(0, 120) + '…' : str
+    }
+    case 'number':
+      return String(value)
+    case 'select':
+    case 'multiselect':
+      return Array.isArray(value) ? value.join(', ') : String(value)
+    case 'list':
+      return Array.isArray(value) ? value.join(', ') : String(value)
+    case 'relation':
+      return String(value)
+    default:
+      return String(value)
+  }
+}
+
+/** Render a cell with appropriate HTML element */
+function CellDisplay({ value, field, col }: { value: unknown; field?: CollectionField; col: string }) {
+  if (value === null || value === undefined || value === '') {
+    return <span class="text-muted">—</span>
+  }
+
+  // Status dropdown special case
+  if (col === 'status') {
+    return null // handled separately
+  }
+
+  // Email — render as mailto link
+  if (field?.type === 'email') {
+    return <a href={`mailto:${String(value)}`}>{String(value)}</a>
+  }
+
+  // URL — render as clickable link
+  if (field?.type === 'url') {
+    const href = String(value).startsWith('http') ? String(value) : `https://${value}`
+    return <a href={href} target="_blank" rel="noopener noreferrer">{String(value)}</a>
+  }
+
+  // Richtext — show truncated with ellipsis
+  if (field?.type === 'richtext') {
+    const str = String(value)
+    const display = str.length > 200 ? str.slice(0, 200) + '…' : str
+    return <span class="richtext-cell" title={str}>{display}</span>
+  }
+
+  // Boolean — badge
+  if (field?.type === 'boolean') {
+    const isTrue = !!value
+    return (
+      <span class={`badge ${isTrue ? 'badge-yes' : 'badge-no'}`}>
+        {isTrue ? 'Yes' : 'No'}
+      </span>
+    )
+  }
+
+  // Datetime — formatted date
+  if (field?.type === 'datetime') {
+    const d = new Date(String(value))
+    if (!isNaN(d.getTime())) {
+      return (
+        <span title={d.toLocaleString()}>
+          {d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+          {' '}
+          <span class="text-muted">{d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+        </span>
+      )
+    }
+  }
+
+  // ID — monospace
+  if (col === 'id') {
+    return <span class="mono">{String(value).slice(0, 8)}…</span>
+  }
+
+  // Default
+  return <span>{String(value)}</span>
+}
+
+export const DataPage: FC<DataProps> = ({ user, collections, activeCollection, records, columns, page, totalPages, total }) => {
+  // Build a lookup of field definitions for the active collection
+  const activeColDef = collections.find((c) => c.name === activeCollection)
+  const fieldDefs = activeColDef?.fields || {}
+
+  return (
   <Layout title="Data" user={user} activePath="/admin/data">
     {collections.length === 0 ? (
       <div class="card">
@@ -72,24 +183,28 @@ export const DataPage: FC<DataProps> = ({ user, collections, activeCollection, r
                   <tbody>
                     {records.map((row: any) => (
                       <tr>
-                        {columns.map((col) => (
-                          <td>
-                            {col === 'status' ? (
-                              <select
-                                class="status-select"
-                                data-id={row.id}
-                                data-collection={activeCollection}
-                                style="padding:3px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;"
-                              >
-                                <option value="draft" selected={row[col] === 'draft'}>draft</option>
-                                <option value="published" selected={row[col] === 'published'}>published</option>
-                                <option value="archived" selected={row[col] === 'archived'}>archived</option>
-                              </select>
-                            ) : (
-                              <span class={col === 'id' ? 'mono' : ''}>{String(row[col] ?? '')}</span>
-                            )}
-                          </td>
-                        ))}
+                        {columns.map((col) => {
+                          const field = fieldDefs[col]
+                          const isStatus = col === 'status'
+                          return (
+                            <td>
+                              {isStatus ? (
+                                <select
+                                  class="status-select"
+                                  data-id={row.id}
+                                  data-collection={activeCollection}
+                                  style="padding:3px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;"
+                                >
+                                  <option value="draft" selected={row[col] === 'draft'}>draft</option>
+                                  <option value="published" selected={row[col] === 'published'}>published</option>
+                                  <option value="archived" selected={row[col] === 'archived'}>archived</option>
+                                </select>
+                              ) : (
+                                <CellDisplay value={row[col]} field={field} col={col} />
+                              )}
+                            </td>
+                          )
+                        })}
                         <td></td>
                       </tr>
                     ))}
@@ -136,4 +251,5 @@ export const DataPage: FC<DataProps> = ({ user, collections, activeCollection, r
       });
     `}</script>
   </Layout>
-)
+  )
+}

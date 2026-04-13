@@ -277,7 +277,16 @@ dashboard.get('/admin/data', (c) => {
         if (tableCheck) {
           // Get column info
           const colInfo = siteDb.prepare(`PRAGMA table_info("${activeCollection}")`).all() as { name: string }[]
-          columns = colInfo.map((col) => col.name)
+
+          const models = loadModels()
+          const collectionDef = models.collections[activeCollection]
+          const modelFields = collectionDef?.fields || {}
+          const hasDataColumn = colInfo.some((c: { name: string }) => c.name === 'data')
+
+          // Determine display columns: if there's a 'data' JSON column, use model fields; otherwise use table columns
+          const displayColumns = hasDataColumn && Object.keys(modelFields).length > 0
+            ? ['id', ...Object.keys(modelFields), 'created_at', 'updated_at']
+            : columns
 
           // Count
           const countRow = siteDb.prepare(`SELECT COUNT(*) as count FROM "${activeCollection}"`).get() as { count: number }
@@ -285,11 +294,28 @@ dashboard.get('/admin/data', (c) => {
           totalPages = Math.ceil(total / perPage)
 
           // Validate sort column
-          const sortCol = columns.includes(sort) ? sort : 'id'
+          const sortCol = displayColumns.includes(sort) ? sort : 'id'
           const offset = (page - 1) * perPage
-          records = siteDb.prepare(
+          const rawRecords = siteDb.prepare(
             `SELECT * FROM "${activeCollection}" ORDER BY "${sortCol}" ${dir} LIMIT ? OFFSET ?`
           ).all(perPage, offset) as Record<string, unknown>[]
+
+          // If there's a data column, parse it and flatten into the record
+          records = rawRecords.map((row) => {
+            if (hasDataColumn && typeof row.data === 'string') {
+              try {
+                const parsed = JSON.parse(row.data)
+                const { data: _, ...rest } = row
+                return { ...rest, ...parsed }
+              } catch {
+                return row
+              }
+            }
+            return row
+          })
+
+          columns.length = 0
+          columns.push(...displayColumns)
         }
       } catch {
         // Table doesn't exist or other error
@@ -414,8 +440,32 @@ dashboard.get('/admin/api/data/:collection/csv', (c) => {
     }
 
     const colInfo = siteDb.prepare(`PRAGMA table_info("${collection}")`).all() as { name: string }[]
-    const columns = colInfo.map((col) => col.name)
-    const records = siteDb.prepare(`SELECT * FROM "${collection}" ORDER BY id`).all() as Record<string, unknown>[]
+    const hasDataColumn = colInfo.some((c: { name: string }) => c.name === 'data')
+
+    const models = loadModels()
+    const collectionDef = models.collections[collection]
+    const modelFields = collectionDef?.fields || {}
+
+    // Determine columns: if there's a data column, use model field names; otherwise use table columns
+    const columns = hasDataColumn && Object.keys(modelFields).length > 0
+      ? ['id', ...Object.keys(modelFields), 'created_at', 'updated_at']
+      : colInfo.map((c: { name: string }) => c.name)
+
+    const rawRecords = siteDb.prepare(`SELECT * FROM "${collection}" ORDER BY id`).all() as Record<string, unknown>[]
+
+    // Flatten data JSON column if present
+    const records = rawRecords.map((row) => {
+      if (hasDataColumn && typeof row.data === 'string') {
+        try {
+          const parsed = JSON.parse(row.data)
+          const { data: _, ...rest } = row
+          return { ...rest, ...parsed }
+        } catch {
+          return row
+        }
+      }
+      return row
+    })
 
     // Build CSV
     const escapeCsv = (val: unknown): string => {
