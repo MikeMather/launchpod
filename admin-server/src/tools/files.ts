@@ -273,6 +273,19 @@ export function registerFileTools(
     async (args) => {
       if (sessionManager.isActive()) sessionManager.touchActivity()
 
+      // Guard: require active editing session
+      if (!sessionManager.isActive()) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'Error: You must start an editing session before writing files. Use the start_editing tool first.',
+            },
+          ],
+          isError: true,
+        }
+      }
+
       const workDir = sessionManager.getWorkingDir()
       const validation = validatePath(args.path, workDir, { requireWritable: true })
 
