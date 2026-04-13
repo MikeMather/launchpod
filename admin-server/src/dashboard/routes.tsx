@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { serveStatic } from 'hono/bun'
 import fs from 'fs'
 import path from 'path'
 import Database from 'bun:sqlite'
@@ -89,6 +90,10 @@ function loadModels(): ModelsConfig {
 // ── App ─────────────────────────────────────────────────────────────────────
 
 const dashboard = new Hono()
+
+// ── Static assets ───────────────────────────────────────────────────────────
+
+dashboard.get('/assets/*', serveStatic({ root: './src/dashboard' }))
 
 // ── Protected routes ────────────────────────────────────────────────────────
 

@@ -27,10 +27,10 @@ export const AuditPage: FC<AuditProps> = ({ user, entries, total, page, totalPag
     <div class="card">
       <h2>Audit Log <span class="text-muted" style="font-weight:400;">({total} entries)</span></h2>
 
-      <form method="GET" action="/admin/audit" class="filters mt-2">
+      <form method="GET" action="/admin/audit" class="filters mt-4">
         <div class="form-group">
           <label>User</label>
-          <select name="userId" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;min-width:160px;">
+          <select name="userId" style="padding:8px 12px;border:1px solid var(--border);border-radius:10px;font-size:13px;min-width:160px;background:var(--card);font-family:inherit;color:var(--foreground);">
             <option value="">All Users</option>
             {users.map((u) => (
               <option value={u.id} selected={filters.userId === u.id}>{u.name || u.email}</option>
@@ -39,7 +39,7 @@ export const AuditPage: FC<AuditProps> = ({ user, entries, total, page, totalPag
         </div>
         <div class="form-group">
           <label>Action</label>
-          <select name="action" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;min-width:140px;">
+          <select name="action" style="padding:8px 12px;border:1px solid var(--border);border-radius:10px;font-size:13px;min-width:140px;background:var(--card);font-family:inherit;color:var(--foreground);">
             <option value="">All Actions</option>
             {actions.map((a) => (
               <option value={a} selected={filters.action === a}>{a}</option>
@@ -48,11 +48,11 @@ export const AuditPage: FC<AuditProps> = ({ user, entries, total, page, totalPag
         </div>
         <div class="form-group">
           <label>From</label>
-          <input type="date" name="from" value={filters.from || ''} style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;" />
+          <input type="date" name="from" value={filters.from || ''} style="padding:8px 12px;border:1px solid var(--border);border-radius:10px;font-size:13px;background:var(--card);font-family:inherit;color:var(--foreground);" />
         </div>
         <div class="form-group">
           <label>To</label>
-          <input type="date" name="to" value={filters.to || ''} style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;" />
+          <input type="date" name="to" value={filters.to || ''} style="padding:8px 12px;border:1px solid var(--border);border-radius:10px;font-size:13px;background:var(--card);font-family:inherit;color:var(--foreground);" />
         </div>
         <button type="submit" class="btn btn-primary">Filter</button>
         <a href="/admin/audit" class="btn btn-secondary">Clear</a>

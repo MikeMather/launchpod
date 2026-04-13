@@ -103,11 +103,11 @@ export const TokensPage: FC<TokensProps> = ({ user, tokens, oauthClients }) => (
           </div>
           <div class="form-group">
             <label>Client ID</label>
-            <div style="background:#f1f5f9;padding:12px;border-radius:6px;word-break:break-all;font-family:monospace;font-size:12px;" id="clientIdValue"></div>
+            <div style="background:var(--muted);padding:12px;border-radius:8px;word-break:break-all;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--foreground);" id="clientIdValue"></div>
           </div>
           <div class="form-group">
             <label>Client Secret</label>
-            <div style="background:#f1f5f9;padding:12px;border-radius:6px;word-break:break-all;font-family:monospace;font-size:12px;" id="clientSecretValue"></div>
+            <div style="background:var(--muted);padding:12px;border-radius:8px;word-break:break-all;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--foreground);" id="clientSecretValue"></div>
           </div>
           <div class="flex gap-2">
             <button class="btn btn-primary" id="copyOAuthBtn">Copy Client ID</button>
@@ -136,7 +136,7 @@ export const TokensPage: FC<TokensProps> = ({ user, tokens, oauthClients }) => (
           <div class="alert alert-warning">
             Copy this token now. It will not be shown again.
           </div>
-          <div style="background:#f1f5f9;padding:12px;border-radius:6px;margin:12px 0;word-break:break-all;font-family:monospace;font-size:13px;" id="tokenValue"></div>
+          <div style="background:var(--muted);padding:12px;border-radius:8px;margin:12px 0;word-break:break-all;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--foreground);" id="tokenValue"></div>
           <div class="flex gap-2">
             <button class="btn btn-primary" id="copyBtn">Copy</button>
             <button class="btn btn-secondary" id="closeModalBtn">Close</button>

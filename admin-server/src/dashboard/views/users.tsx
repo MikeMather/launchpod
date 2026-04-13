@@ -17,7 +17,7 @@ export const UsersPage: FC<UsersProps> = ({ user, users }) => (
       <div class="flex justify-between items-center">
         <h2>Add User</h2>
       </div>
-      <form id="addUserForm" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 12px; align-items: flex-end;">
+      <form id="addUserForm" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 14px; align-items: flex-end;">
         <div class="form-group">
           <label>Name</label>
           <input type="text" name="name" required placeholder="Full name" />
@@ -37,7 +37,7 @@ export const UsersPage: FC<UsersProps> = ({ user, users }) => (
             <option value="admin">Admin</option>
           </select>
         </div>
-        <button type="submit" class="btn btn-primary" style="height: 38px;">Add User</button>
+        <button type="submit" class="btn btn-primary" style="height: 42px;">Add User</button>
       </form>
       <div id="addUserMsg" class="mt-2" style="font-size:13px;"></div>
     </div>
@@ -61,7 +61,7 @@ export const UsersPage: FC<UsersProps> = ({ user, users }) => (
               <td>{u.name}</td>
               <td class="mono">{u.email}</td>
               <td>
-                <select class="role-select" data-id={u.id} style="padding:4px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;">
+                <select class="role-select" data-id={u.id} style="padding:5px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:var(--card);font-family:inherit;color:var(--foreground);">
                   <option value="editor" selected={u.role === 'editor'}>Editor</option>
                   <option value="admin" selected={u.role === 'admin'}>Admin</option>
                 </select>
@@ -104,13 +104,13 @@ export const UsersPage: FC<UsersProps> = ({ user, users }) => (
           });
           var data = await res.json();
           if (data.ok) {
-            msg.innerHTML = '<span style="color:#166534">User created. Reloading...</span>';
+            msg.innerHTML = '<span style="color:#16A34A">User created. Reloading...</span>';
             setTimeout(function(){ location.reload(); }, 800);
           } else {
-            msg.innerHTML = '<span style="color:#991b1b">' + (data.error || 'Error') + '</span>';
+            msg.innerHTML = '<span style="color:#DC2626">' + (data.error || 'Error') + '</span>';
           }
         } catch(err) {
-          msg.innerHTML = '<span style="color:#991b1b">Network error</span>';
+          msg.innerHTML = '<span style="color:#DC2626">Network error</span>';
         }
       });
 
