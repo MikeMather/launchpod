@@ -85,6 +85,24 @@ if [[ -n "${GIT_REMOTE}" ]]; then
   ok "Git remote: ${GIT_REMOTE}"
 fi
 
+# -- install dependencies
+
+apt get update
+apt install -y git unzip caddy
+
+# bun
+curl -fsSL https://bun.com/install | bash
+
+# pm2
+bun install -g pm2
+
+# nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
+
+\. "$HOME/.nvm/nvm.sh"
+
+nvm install 24
+
 # ── Copy site template ────────────────────────────────────────────────────
 
 if [[ -d "${SITE_DIR}/.git" ]]; then
@@ -105,6 +123,14 @@ fi
 
 mkdir -p "${DATA_DIR}"
 mkdir -p "${PREVIEWS_DIR}"
+
+# -- install dependencies for admin server
+
+log "Installing admin server dependencies..."
+cd "${ADMIN_SERVER_DIR}"
+bun install
+bun run build
+ok "Admin server dependencies installed."
 
 # ── Install dependencies ──────────────────────────────────────────────────
 
@@ -191,6 +217,7 @@ log "Configuring Caddy reverse proxy..."
 
 SITE_PORT=4000
 ADMIN_PORT=3100
+MCP_AUTH_PROXY_PORT=3200
 
 cat > "${CADDYFILE}" <<CADDYEOF
 # ── LaunchPod Caddyfile ────────────────────────────────────────────────
@@ -213,9 +240,12 @@ ${DOMAIN} {
 
 admin.${DOMAIN} {
 	encode gzip
-	reverse_proxy localhost:${ADMIN_PORT} {
-		flush_interval -1
-	}
+	reverse_proxy localhost:${ADMIN_PORT}
+}
+
+mcp.${DOMAIN} {
+  encode gzip
+  reverse_proxy localhost:${MCP_AUTH_PROXY_PORT}
 }
 CADDYEOF
 
@@ -249,10 +279,12 @@ module.exports = {
   apps: [
     {
       name: "site-${SITE_NAME}",
+      interpreter: "bun",
       script: "${SITE_DIR}/dist/server/entry.mjs",
       cwd: "${SITE_DIR}",
+      watch: ['dist'],
       env: {
-        HOST: "127.0.0.1",
+        HOST: "0.0.0.0",
         PORT: "${SITE_PORT}",
         SITE_DB_PATH: "${SITE_DB_PATH}",
         NODE_ENV: "production"
@@ -260,7 +292,8 @@ module.exports = {
     },
     {
       name: "admin-${SITE_NAME}",
-      script: "${ADMIN_SERVER_DIR}/dist/index.js",
+      interpreter: "bun",
+      script: "${ADMIN_SERVER_DIR}/src/index.tsx",
       cwd: "${ADMIN_SERVER_DIR}",
       env: {
         SITE_DIR: "${SITE_DIR}",
@@ -271,6 +304,14 @@ module.exports = {
         SITE_DB_PATH: "${SITE_DB_PATH}",
         JWT_SECRET: "${JWT_SECRET}",
         NODE_ENV: "production"
+      }
+    },
+    {
+      name: "mcp-auth-proxy",
+      script: "${LAUNCHPOD_DIR}/mcp-auth-proxy --external-url https://admin.${DOMAIN} --no-auto-tls --listen ':${MCP_AUTH_PROXY_PORT}' 'http://localhost:${ADMIN_PORT}'",
+      cwd: "${LAUNCHPOD_DIR}",
+      env: {
+        PASSWORD: "password"
       }
     }
   ]

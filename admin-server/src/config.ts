@@ -62,8 +62,9 @@ export function validatePath(
   // Normalize and resolve the path
   const normalized = path.normalize(filePath).replace(/\\/g, '/')
 
-  // Prevent traversal
-  if (normalized.includes('..')) {
+  // Prevent traversal — check for '..' as a path segment, not as a substring
+  // (e.g. '[...slug].astro' should NOT be blocked)
+  if (normalized.split('/').includes('..')) {
     return { valid: false, resolved: '', error: 'Path traversal not allowed' }
   }
 

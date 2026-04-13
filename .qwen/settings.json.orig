@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__launchpod__list_files"
+    ]
+  },
+  "$version": 2
+}

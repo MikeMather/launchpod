@@ -143,6 +143,32 @@ export function registerFileTools(
     }
   )
 
+  const infoText = `
+  LaunchPod is a tool for managing a website built with Astro.
+  You can use the tools provided by this MCP server to manager a users website.
+
+  Some general tips:
+  - This is an astro project so refer to the astro docs for general astro usage
+  - Avoid overusing gradients
+  - Do not use emojis. Use icons instead of emojis if visual cues are necessary
+  - performance of the site is a priority
+  - Ensure the site is SEO friendly
+  - Use software architecture best practices (e.g. separation of concerns, DRY)
+
+  Use the list_files tool to view the files in the project before beginning.
+  `;
+
+  server.tool(
+    'info',
+    'Instructions for using LaunchPod and the tools provided',
+    {},
+    async () => {
+      return {
+        content: [{ type: 'text', text: infoText }],
+      }
+    }
+  )
+
   // ── read_file ──────────────────────────────────────────────────────────
 
   server.tool(

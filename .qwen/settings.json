@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "mcp__launchpod__list_files"
+      "mcp__launchpod__list_files",
+      "mcp__launchpod__read_file",
+      "WebFetch(naturenl.ca)",
+      "mcp__launchpod__write_file",
+      "mcp__launchpod__delete_file",
+      "WebFetch(preview-b82c4667.admin.launchpod.sh)"
     ]
-  }
+  },
+  "$version": 3
 }

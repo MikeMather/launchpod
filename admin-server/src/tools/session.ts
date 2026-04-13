@@ -67,6 +67,7 @@ export function registerSessionTools(
                 `Preview URL: ${result.previewUrl}`,
                 ``,
                 `You can now edit files and see changes live at the preview URL.`,
+                `Send the preview URL to the user so they can see changes live`,
                 `When done, use publish_changes to deploy or discard_changes to cancel.`,
               ].join('\n'),
             },

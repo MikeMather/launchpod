@@ -406,20 +406,32 @@ class SessionManager {
       // f. Merge preview branch
       mergeBranch(branch, userName, userEmail)
 
-      // g. Restart via pm2
-      try {
-        const pm2Result = spawnSync('pm2', ['restart', 'all'], {
-          cwd: config.SITE_DIR,
-          encoding: 'utf-8',
-          timeout: 15_000,
-          stdio: 'pipe',
-        })
-        if (pm2Result.status !== 0) {
-          console.warn('[session] PM2 restart warning:', pm2Result.stderr)
+      // g. Build in SITE_DIR (the worktree build output is in the worktree, not SITE_DIR,
+      //    and dist/ is gitignored so the merge doesn't carry it over)
+      console.log('[session] Building site in main directory...')
+      const mainBuildResult = spawnSync('bun', ['run', 'build'], {
+        cwd: config.SITE_DIR,
+        encoding: 'utf-8',
+        timeout: 120_000,
+        stdio: 'pipe',
+        env: { ...process.env, PATH: process.env.PATH },
+      })
+      if (mainBuildResult.status !== 0) {
+        const buildErr = mainBuildResult.stderr || mainBuildResult.stdout || 'Build failed'
+        console.error(`[session] Main build failed after merge: ${buildErr}`)
+        // Revert the merge
+        try {
+          gitExec(['reset', '--hard', preMergeCommit], config.SITE_DIR)
+        } catch (revertErr) {
+          console.error(`[session] Failed to revert merge: ${revertErr}`)
         }
-      } catch (pm2Err) {
-        console.warn(`[session] pm2 restart failed (may not be using pm2): ${pm2Err}`)
+        return {
+          success: false,
+          error: `Build failed after merging changes: ${buildErr}`,
+        }
       }
+      console.log('[session] Site built successfully in main directory.')
+      // PM2 watch will auto-restart the site process when dist/ changes
 
       // h. Cleanup preview environment
       await this.cleanupPreview()
