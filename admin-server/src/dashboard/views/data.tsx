@@ -73,11 +73,6 @@ function CellDisplay({ value, field, col }: { value: unknown; field?: Collection
     return <span class="text-muted">—</span>
   }
 
-  // Status dropdown special case
-  if (col === 'status') {
-    return null // handled separately
-  }
-
   // Email — render as mailto link
   if (field?.type === 'email') {
     return <a href={`mailto:${String(value)}`}>{String(value)}</a>
@@ -148,7 +143,7 @@ export const DataPage: FC<DataProps> = ({ user, collections, activeCollection, r
               href={`/admin/data?collection=${col.name}`}
               class={`tab ${activeCollection === col.name ? 'active' : ''}`}
             >
-              {col.name}
+              {col.name.split('_').join(' ')}
             </a>
           ))}
         </div>
@@ -185,23 +180,9 @@ export const DataPage: FC<DataProps> = ({ user, collections, activeCollection, r
                       <tr>
                         {columns.map((col) => {
                           const field = fieldDefs[col]
-                          const isStatus = col === 'status'
                           return (
                             <td>
-                              {isStatus ? (
-                                <select
-                                  class="status-select"
-                                  data-id={row.id}
-                                  data-collection={activeCollection}
-                                  style="padding:3px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:12px;"
-                                >
-                                  <option value="draft" selected={row[col] === 'draft'}>draft</option>
-                                  <option value="published" selected={row[col] === 'published'}>published</option>
-                                  <option value="archived" selected={row[col] === 'archived'}>archived</option>
-                                </select>
-                              ) : (
-                                <CellDisplay value={row[col]} field={field} col={col} />
-                              )}
+                              <CellDisplay value={row[col]} field={field} col={col} />
                             </td>
                           )
                         })}
@@ -232,24 +213,6 @@ export const DataPage: FC<DataProps> = ({ user, collections, activeCollection, r
         )}
       </div>
     )}
-
-    <script>{`
-      document.querySelectorAll('.status-select').forEach(function(sel) {
-        sel.addEventListener('change', async function() {
-          var id = this.dataset.id;
-          var col = this.dataset.collection;
-          try {
-            await fetch('/admin/api/data/' + col + '/' + id, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status: this.value })
-            });
-          } catch(err) {
-            alert('Failed to update status');
-          }
-        });
-      });
-    `}</script>
   </Layout>
   )
 }
