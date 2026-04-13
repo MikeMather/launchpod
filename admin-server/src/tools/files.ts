@@ -154,6 +154,8 @@ export function registerFileTools(
   - performance of the site is a priority
   - Ensure the site is SEO friendly
   - Use software architecture best practices (e.g. separation of concerns, DRY)
+  - Don't publish changes without explicit confirmation
+  - Preview URLs should be shared with the user before any changes are made
 
   Use the list_files tool to view the files in the project before beginning.
 

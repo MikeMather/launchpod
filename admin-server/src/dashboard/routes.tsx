@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import fs from 'fs'
 import path from 'path'
-import Database from 'better-sqlite3'
+import Database from 'bun:sqlite'
 import YAML from 'yaml'
 import { config } from '../config.js'
 import {
@@ -52,11 +52,12 @@ function getUser(c: any): LayoutUser {
   }
 }
 
-function getSiteDb(): Database.Database | null {
+function getSiteDb(mode: 'readonly' | 'readwrite' = 'readonly'): Database.Database | null {
   try {
     if (!fs.existsSync(config.SITE_DB_PATH)) return null
-    return new Database(config.SITE_DB_PATH, { readonly: false })
-  } catch {
+    return new Database(config.SITE_DB_PATH, { readonly: mode === 'readonly' })
+  } catch (err) {
+    console.error(`[admin] Failed to open site database: ${err}`)
     return null
   }
 }
@@ -353,7 +354,7 @@ dashboard.patch('/admin/api/data/:collection/:id', async (c) => {
   const body = await c.req.json()
   const currentUser = c.get('user') as AuthUser
 
-  const siteDb = getSiteDb()
+  const siteDb = getSiteDb('readwrite')
   if (!siteDb) {
     return c.json({ error: 'Site database not available' }, 500)
   }
