@@ -29,7 +29,9 @@ import {
   getActiveSessionRecord,
   getDb,
 } from '../db.js'
-import type { LayoutUser } from './layout.js'
+import { Layout, type LayoutUser } from './layout.js'
+import { sessionManager } from '../session.js'
+import { uploadToSession } from '../upload.js'
 
 // Views
 import { HomePage } from './views/home.js'
@@ -38,6 +40,7 @@ import { TokensPage } from './views/tokens.js'
 import { DataPage } from './views/data.js'
 import { AuditPage } from './views/audit.js'
 import { SessionsPage } from './views/sessions.js'
+import { UploadPage } from './views/upload.js'
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -578,6 +581,99 @@ dashboard.get('/admin/sessions', (c) => {
       totalPages={totalPages}
     />
   )
+})
+
+// ── Session Upload ──────────────────────────────────────────────────────────
+
+dashboard.get('/session/:sessionId/upload', (c) => {
+  const user = getUser(c)
+  const { sessionId } = c.req.param()
+
+  // Verify session exists and is active
+  const status = sessionManager.getStatus()
+  if (!status || status.sessionId !== sessionId) {
+    return c.html(
+      <Layout title="Upload" user={user} activePath="">
+        <div class="card">
+          <h2>Session Not Found</h2>
+          <p class="text-muted">
+            This upload URL is no longer valid. The session may have ended or does not exist.
+          </p>
+          <a href="/" class="button mt-4">Return to Dashboard</a>
+        </div>
+      </Layout>
+    )
+  }
+
+  // Check user owns the session
+  if (status.userId !== user.id) {
+    return c.html(
+      <Layout title="Upload" user={user} activePath="">
+        <div class="card">
+          <h2>Access Denied</h2>
+          <p class="text-muted">
+            This upload session belongs to another user.
+          </p>
+          <a href="/" class="button mt-4">Return to Dashboard</a>
+        </div>
+      </Layout>
+    )
+  }
+
+  return c.html(
+    <UploadPage
+      user={user}
+      sessionId={sessionId}
+      previewUrl={status.previewUrl}
+    />
+  )
+})
+
+dashboard.post('/session/:sessionId/upload', async (c) => {
+  const user = getUser(c)
+  const { sessionId } = c.req.param()
+
+  // Verify session exists and is active
+  const status = sessionManager.getStatus()
+  if (!status || status.sessionId !== sessionId) {
+    return c.json({ error: 'Session not found or no longer active' }, 404)
+  }
+
+  // Check user owns the session
+  if (status.userId !== user.id) {
+    return c.json({ error: 'Access denied' }, 403)
+  }
+
+  try {
+    const body = await c.req.parseBody()
+    const file = body['file'] as File
+
+    if (!file) {
+      return c.json({ error: 'No file provided' }, 400)
+    }
+
+    const result = await uploadToSession(file, {
+      id: user.id,
+      name: user.name || user.email,
+      email: user.email,
+    })
+
+    // Redirect back to upload page with success
+    return c.html(
+      <UploadPage
+        user={user}
+        sessionId={sessionId}
+        previewUrl={status.previewUrl}
+        uploadedFile={result}
+      />
+    )
+  } catch (err) {
+    console.error('[upload] Upload failed:', err)
+    return c.json(
+      { error: err instanceof Error ? err.message : 'Upload failed' },
+      500
+    )
+  }
 })
 
 export { dashboard as dashboardRoutes }

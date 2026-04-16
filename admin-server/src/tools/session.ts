@@ -57,6 +57,7 @@ export function registerSessionTools(
 
       try {
         const result = await sessionManager.startEditing(user.id, user.name, user.email)
+        const uploadUrl = `https://admin.${config.SITE_DOMAIN}/session/${result.sessionId}/upload`
         return {
           content: [
             {
@@ -65,9 +66,11 @@ export function registerSessionTools(
                 `Editing session started successfully!`,
                 `Session ID: ${result.sessionId}`,
                 `Preview URL: ${result.previewUrl}`,
+                `Upload URL: ${uploadUrl}`,
                 ``,
                 `You can now edit files and see changes live at the preview URL.`,
-                `Send the preview URL to the user so they can see changes live`,
+                `The user can upload images/files at the upload URL (requires dashboard login).`,
+                `Send the preview URL to the user so they can see changes live.`,
                 `When done, use publish_changes to deploy or discard_changes to cancel.`,
               ].join('\n'),
             },
@@ -196,6 +199,8 @@ export function registerSessionTools(
         }
       }
 
+      const uploadUrl = `https://admin.${config.SITE_DOMAIN}/session/${status.sessionId}/upload`
+
       return {
         content: [
           {
@@ -205,6 +210,7 @@ export function registerSessionTools(
               `  Session ID: ${status.sessionId}`,
               `  Branch: ${status.branch}`,
               `  Preview URL: ${status.previewUrl}`,
+              `  Upload URL: ${uploadUrl}`,
               `  Started: ${status.startedAt}`,
               `  Last activity: ${status.lastActivityAt}`,
             ].join('\n'),

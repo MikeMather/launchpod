@@ -375,8 +375,18 @@ class SessionManager {
       // c. Record pre-merge commit of main
       const preMergeCommit = gitExec(['rev-parse', 'HEAD'], config.SITE_DIR)
 
-      // d. Run build in worktree with timeout
+      // d. Run install and build in worktree with timeout
       try {
+        const installResult = spawnSync('bun', ['install'], {
+          cwd: worktreePath,
+          encoding: 'utf-8',
+          timeout: 120_000,
+          stdio: 'pipe',
+          env: { ...process.env, PATH: process.env.PATH },
+        })
+        if (installResult.status !== 0) {
+          throw new Error(`bun install failed: ${installResult.stderr || installResult.stdout}`)
+        }
         const buildResult = spawnSync('bun', ['run', 'build'], {
           cwd: worktreePath,
           encoding: 'utf-8',
@@ -409,6 +419,16 @@ class SessionManager {
       // g. Build in SITE_DIR (the worktree build output is in the worktree, not SITE_DIR,
       //    and dist/ is gitignored so the merge doesn't carry it over)
       console.log('[session] Building site in main directory...')
+      const mainInstallResult = spawnSync('bun', ['install'], {
+        cwd: config.SITE_DIR,
+        encoding: 'utf-8',
+        timeout: 120_000,
+        stdio: 'pipe',
+        env: { ...process.env, PATH: process.env.PATH },
+      })
+      if (mainInstallResult.status !== 0) {
+        throw new Error(`bun install failed: ${mainInstallResult.stderr || mainInstallResult.stdout}`)
+      }
       const mainBuildResult = spawnSync('bun', ['run', 'build'], {
         cwd: config.SITE_DIR,
         encoding: 'utf-8',
@@ -513,7 +533,9 @@ class SessionManager {
     if (this.session?.previewProcess) {
       try {
         // Kill the entire process group to ensure child processes are killed
-        process.kill(-this.session.previewProcess.pid, 'SIGTERM')
+        if (this.session.previewProcess.pid) {
+          process.kill(-this.session.previewProcess.pid, 'SIGTERM')
+        }
       } catch {
         // Process may already be dead
       }
