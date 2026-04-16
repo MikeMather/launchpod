@@ -511,6 +511,50 @@ class SessionManager {
     this.session = null
   }
 
+  // ── Restart preview ────────────────────────────────────────────────────
+
+  async restartPreview(): Promise<void> {
+    if (!this.session) {
+      throw new Error('No active editing session to restart')
+    }
+
+    const { sessionId, worktreePath, previewPort } = this.session
+
+    console.log(`[session] Restarting preview server for session ${sessionId}`)
+
+    // Kill existing preview process
+    this.killPreviewProcess()
+
+    // Wait a moment for the port to be released
+    await new Promise(resolve => setTimeout(resolve, 1000))
+
+    // Spawn new dev server on the same port
+    const devProcess = spawn('bun', ['run', 'dev', '--host', '0.0.0.0', '--port', String(previewPort)], {
+      cwd: worktreePath,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: true,
+      detached: true,
+      env: { ...process.env, PATH: process.env.PATH },
+    })
+
+    devProcess.stdout?.on('data', (data: Buffer) => {
+      console.log(`[preview:${sessionId}] ${data.toString().trim()}`)
+    })
+    devProcess.stderr?.on('data', (data: Buffer) => {
+      console.error(`[preview:${sessionId}] ${data.toString().trim()}`)
+    })
+    devProcess.on('error', (err) => {
+      console.error(`[preview:${sessionId}] Process error: ${err.message}`)
+    })
+    devProcess.on('exit', (code) => {
+      console.log(`[preview:${sessionId}] Dev server exited with code ${code}`)
+    })
+
+    this.session.previewProcess = devProcess
+
+    console.log(`[session] Preview server restarted for session ${sessionId}`)
+  }
+
   // ── Cleanup ────────────────────────────────────────────────────────────
 
   async cleanup(): Promise<void> {

@@ -1,8 +1,10 @@
 # LaunchPod
 
-**AI-powered website management platform for dev agencies.**
+**AI-powered website management platform.**
 
-LaunchPod enables agencies to give non-technical clients an AI interface to manage their websites. Clients use any MCP-compatible AI agent (Claude Desktop, Claude.ai, Cursor) to request changes in plain language. The AI reads files, makes edits, shows previews, and publishes — all without the client knowing git, servers, or code.
+LaunchPod gives non-technical users an AI interface to manage their website. Users connect via any MCP-compatible AI agent (Claude Desktop, Claude.ai, Cursor) to request changes in plain language. The AI reads files, makes edits, shows previews, and publishes — all without the user knowing git, servers, or code.
+
+**Note:** LaunchPod currently manages a single site per installation. The site template is copied to `site/` where all changes are made.
 
 ## Table of Contents
 

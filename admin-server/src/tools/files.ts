@@ -460,4 +460,248 @@ export function registerFileTools(
       }
     }
   )
+
+  // ── install_package ────────────────────────────────────────────────────
+
+  server.tool(
+    'install_package',
+    'Install an npm package in the current preview session. Only works during active editing sessions. The preview server will be restarted after installation to load the new dependencies.',
+    {
+      package_name: z.string().describe('The npm package name to install (e.g., "react-hook-form")'),
+      version: z.string().optional().describe('Optional version specifier (e.g., "^7.0.0"). If omitted, installs latest version.'),
+    },
+    async (args) => {
+      if (sessionManager.isActive()) sessionManager.touchActivity()
+
+      // Guard: require active editing session
+      if (!sessionManager.isActive()) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'Error: You must start an editing session before installing packages. Use the start_editing tool first.',
+            },
+          ],
+          isError: true,
+        }
+      }
+
+      const user = getUser()
+      const workDir = sessionManager.getWorkingDir()
+
+      // Validate package name format (basic check)
+      const packageNameRegex = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/
+      if (!packageNameRegex.test(args.package_name)) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: Invalid package name format: ${args.package_name}`,
+            },
+          ],
+          isError: true,
+        }
+      }
+
+      // Build package specifier
+      const packageSpec = args.version
+        ? `${args.package_name}@${args.version}`
+        : args.package_name
+
+      console.log(`[install_package] Installing ${packageSpec} in ${workDir}`)
+
+      // Run bun install
+      try {
+        const installResult = execSync(`bun install ${packageSpec}`, {
+          cwd: workDir,
+          encoding: 'utf-8',
+          timeout: 120_000,
+          stdio: 'pipe',
+        })
+
+        console.log(`[install_package] Install output: ${installResult}`)
+
+        // Auto-commit package.json and lockfile changes
+        try {
+          const packageJsonPath = path.join(workDir, 'package.json')
+          const lockfilePath = path.join(workDir, 'bun.lockb')
+
+          stageAndCommitIfSession(
+            packageJsonPath,
+            `install: ${packageSpec}`,
+            user?.id ?? null,
+            user?.name,
+            user?.email
+          )
+
+          // Also stage lockfile if it exists
+          if (fs.existsSync(lockfilePath)) {
+            execSync(`git add bun.lockb`, { cwd: workDir, encoding: 'utf-8' })
+          }
+        } catch (commitErr) {
+          console.warn(`[install_package] Auto-commit failed: ${commitErr}`)
+        }
+
+        // Restart preview server to load new dependencies
+        try {
+          await sessionManager.restartPreview()
+          console.log(`[install_package] Preview server restarted`)
+        } catch (restartErr) {
+          console.error(`[install_package] Preview restart failed: ${restartErr}`)
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Package installed successfully, but preview server restart failed: ${restartErr instanceof Error ? restartErr.message : String(restartErr)}\n\nYou may need to discard and start a new editing session.`,
+              },
+            ],
+            isError: true,
+          }
+        }
+
+        logAction(user?.id ?? null, 'package.install', packageSpec)
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Package installed successfully: ${packageSpec}\n\nThe preview server has been restarted to load the new dependencies.`,
+            },
+          ],
+        }
+      } catch (err: any) {
+        const errorOutput = err.stderr || err.stdout || err.message || String(err)
+        console.error(`[install_package] Installation failed: ${errorOutput}`)
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error installing package ${packageSpec}:\n\n${errorOutput}\n\nPlease check the package name and version, and try again.`,
+            },
+          ],
+          isError: true,
+        }
+      }
+    }
+  )
+
+  // ── uninstall_package ──────────────────────────────────────────────────
+
+  server.tool(
+    'uninstall_package',
+    'Uninstall an npm package from the current preview session. Only works during active editing sessions. The preview server will be restarted after uninstallation.',
+    {
+      package_name: z.string().describe('The npm package name to uninstall (e.g., "react-hook-form")'),
+    },
+    async (args) => {
+      if (sessionManager.isActive()) sessionManager.touchActivity()
+
+      // Guard: require active editing session
+      if (!sessionManager.isActive()) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'Error: You must start an editing session before uninstalling packages. Use the start_editing tool first.',
+            },
+          ],
+          isError: true,
+        }
+      }
+
+      const user = getUser()
+      const workDir = sessionManager.getWorkingDir()
+
+      // Validate package name format (basic check)
+      const packageNameRegex = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/
+      if (!packageNameRegex.test(args.package_name)) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: Invalid package name format: ${args.package_name}`,
+            },
+          ],
+          isError: true,
+        }
+      }
+
+      console.log(`[uninstall_package] Uninstalling ${args.package_name} from ${workDir}`)
+
+      // Run bun remove
+      try {
+        const uninstallResult = execSync(`bun remove ${args.package_name}`, {
+          cwd: workDir,
+          encoding: 'utf-8',
+          timeout: 120_000,
+          stdio: 'pipe',
+        })
+
+        console.log(`[uninstall_package] Uninstall output: ${uninstallResult}`)
+
+        // Auto-commit package.json and lockfile changes
+        try {
+          const packageJsonPath = path.join(workDir, 'package.json')
+          const lockfilePath = path.join(workDir, 'bun.lockb')
+
+          stageAndCommitIfSession(
+            packageJsonPath,
+            `uninstall: ${args.package_name}`,
+            user?.id ?? null,
+            user?.name,
+            user?.email
+          )
+
+          // Also stage lockfile if it exists
+          if (fs.existsSync(lockfilePath)) {
+            execSync(`git add bun.lockb`, { cwd: workDir, encoding: 'utf-8' })
+          }
+        } catch (commitErr) {
+          console.warn(`[uninstall_package] Auto-commit failed: ${commitErr}`)
+        }
+
+        // Restart preview server to unload the removed dependencies
+        try {
+          await sessionManager.restartPreview()
+          console.log(`[uninstall_package] Preview server restarted`)
+        } catch (restartErr) {
+          console.error(`[uninstall_package] Preview restart failed: ${restartErr}`)
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Package uninstalled successfully, but preview server restart failed: ${restartErr instanceof Error ? restartErr.message : String(restartErr)}\n\nYou may need to discard and start a new editing session.`,
+              },
+            ],
+            isError: true,
+          }
+        }
+
+        logAction(user?.id ?? null, 'package.uninstall', args.package_name)
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Package uninstalled successfully: ${args.package_name}\n\nThe preview server has been restarted.`,
+            },
+          ],
+        }
+      } catch (err: any) {
+        const errorOutput = err.stderr || err.stdout || err.message || String(err)
+        console.error(`[uninstall_package] Uninstallation failed: ${errorOutput}`)
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error uninstalling package ${args.package_name}:\n\n${errorOutput}\n\nPlease check the package name and try again.`,
+            },
+          ],
+          isError: true,
+        }
+      }
+    }
+  )
 }
