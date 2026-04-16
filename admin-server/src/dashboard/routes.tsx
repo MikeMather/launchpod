@@ -102,6 +102,7 @@ dashboard.get('/assets/*', serveStatic({ root: './src/dashboard' }))
 
 dashboard.use('/', dashboardAuthMiddleware)
 dashboard.use('/admin/*', dashboardAuthMiddleware)
+dashboard.use('/session/*', dashboardAuthMiddleware)
 
 // ── Home ────────────────────────────────────────────────────────────────────
 
